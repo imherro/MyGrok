@@ -24,7 +24,7 @@ This script is designed for **Linux** systems only. It relies on the following d
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/DragonsWho/grok3-api.git
+   git clone https://github.com/DragonsWho/grok3_api.git
    cd grok3-api
    ```
 
@@ -53,11 +53,11 @@ This script is designed for **Linux** systems only. It relies on the following d
 ## Usage
 Run the script from the command line:
 ```bash
-python grok_api.py "Your message here" [file1] [file2] ...
+python grok3_api.py "Your message here" [file1] [file2] ...
 ```
 Example:
 ```bash
-python grok_api.py "What’s on this picture? Where is this mountain?" image.png
+python grok3_api.py "What’s on this picture? Where is this mountain?" image.png
 ```
 
 ### Options
