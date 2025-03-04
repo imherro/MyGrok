@@ -1,0 +1,5 @@
+pyperclip
+opencv-python
+numpy
+mss
+mimetypes

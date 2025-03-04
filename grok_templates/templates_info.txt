@@ -1,0 +1,6 @@
+input_field: grok_templates/input_field.png
+input_field_alt: grok_templates/input_field_alt.png
+copy_button: grok_templates/copy_button.png
+copy_button_alt: grok_templates/copy_button_alt.png 
+send_button_active: grok_templates/send_button_active.png
+created: 2025-03-04 15:33:04
