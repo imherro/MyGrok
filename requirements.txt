@@ -2,3 +2,6 @@ pyperclip
 opencv-python
 numpy
 mss
+fastapi
+uvicorn
+pydantic

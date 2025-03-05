@@ -1,1 +1,4 @@
 venv
+__pycache__
+grok_window_id.txt
+grok3_api.log
