@@ -1,59 +1,60 @@
+#server.py
 import logging
 from fastapi import FastAPI, HTTPException, Header, Request
 from pydantic import BaseModel, ValidationError, Field
 from typing import List, Optional, Union
 import time
-from grok3_api import GrokAPI, check_dependencies  # Импорт твоего API
+from grok3_api import GrokAPI, check_dependencies   
 from contextlib import asynccontextmanager
 
-# Настраиваем логирование в файл и терминал
+# Set up logging to file and terminal
 logging.basicConfig(
-    level=logging.ERROR,  # Изменено с INFO на ERROR
+    level=logging.ERROR,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler("grok3_api.log"),  # Логи в файл
-        logging.StreamHandler()  # Логи в терминал
+        logging.FileHandler("grok3_api.log"),  # Logs to file
+        logging.StreamHandler()  # Logs to terminal
     ]
 )
 logger = logging.getLogger(__name__)
 
-# Проверяем зависимости при старте
+# Check dependencies at startup
 if not check_dependencies():
     raise RuntimeError("Missing dependencies (xdotool, xclip, imagemagick)")
 
-# Инициализируем GrokAPI с reuse_window=True
+# Initialize GrokAPI with reuse_window=True
 grok_api = GrokAPI(reuse_window=True)
 
-# Модель для содержимого сообщения (строка или список объектов)
+# Model for message content (string or list of objects)
 class ContentItem(BaseModel):
     type: str
     text: str
 
-# Модель для сообщения
+# Model for message
 class Message(BaseModel):
     role: str
     content: Union[str, List[ContentItem]] = Field(..., description="Message content as string or list of content items")
 
-# Модель для запроса
+# Model for request
 class ChatRequest(BaseModel):
     model: str
     messages: List[Message]
     max_tokens: Optional[int] = None
     files: Optional[List[str]] = None
-    temperature: Optional[float] = None  # Поддержка поля из запроса Roo Code
+    temperature: Optional[float] = None  # Support for field from Roo Code request
     stream: Optional[bool] = None
-    stream_options: Optional[dict] = None  # Поддержка поля из запроса Roo Code
+    stream_options: Optional[dict] = None  # Support for field from Roo Code request
 
-# Lifespan для управления стартом и завершением
+# Lifespan for managing startup and shutdown
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Starting application")  # Это сообщение всё равно не будет записано, так как уровень INFO ниже ERROR
+    logger.info("Starting application")
     yield
     if grok_api.window_id:
-        grok_api.ask("", close_after=True)  # Закрываем окно
-    logger.info("Application shutdown")  # Это сообщение тоже не будет записано
+        grok_api.ask("", close_after=True)  # Close the window
+    logger.info("Application shutdown")
 
-# Создаём приложение с lifespan
+# Create the application with lifespan
 app = FastAPI(lifespan=lifespan)
 
 @app.exception_handler(ValidationError)
@@ -63,18 +64,18 @@ async def validation_exception_handler(request: Request, exc: ValidationError):
 
 @app.post("/v1/chat/completions")
 async def chat_completions(request: Request, authorization: str = Header(default=None)):
-    # Логируем полное тело запроса (закомментировано, но сохранено)
+    
     # logger.info(f"Received request body: {body}")
     # logger.info(f"Authorization header: {authorization}")
 
-    # Пробуем валидировать запрос
+    # Try to validate the request
     try:
         parsed_request = ChatRequest(**body)
     except ValidationError as e:
         logger.error(f"Failed to parse request: {str(e)}")
         raise HTTPException(status_code=422, detail=str(e))
 
-    # Собираем полный текст всех сообщений, включая системный контекст и environment_details
+    # Collect the full text of all messages, including system context and environment_details
     full_message = ""
     for msg in parsed_request.messages:
         if isinstance(msg.content, str):
@@ -85,14 +86,9 @@ async def chat_completions(request: Request, authorization: str = Header(default
     if not full_message:
         logger.error("No messages found in request")
         raise HTTPException(status_code=400, detail="No messages found in request")
+ 
 
-    # Логируем длину и первые 1000 символов для отладки (закомментировано, но сохранено)
-    # logger.info(f"Full message length: {len(full_message)} characters")
-    # logger.info(f"Full message preview (first 1000 chars): {full_message[:1000]}")
-
-    # logger.info(f"Sending to GrokAPI: full_message='{full_message}', files={parsed_request.files}")
-
-    # Отправляем полный текст в GrokAPI
+    # Send the full text to GrokAPI
     file_paths = parsed_request.files if parsed_request.files else None
     try:
         response = grok_api.ask(message=full_message, file_paths=file_paths, timeout=120, close_after=False)
@@ -104,7 +100,7 @@ async def chat_completions(request: Request, authorization: str = Header(default
         logger.error(f"Error processing request: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
 
-    # Формируем ответ в формате OpenAI
+    # Format the response in OpenAI format
     response_dict = {
         "id": f"chatcmpl-{int(time.time())}",
         "object": "chat.completion",
@@ -126,7 +122,7 @@ async def chat_completions(request: Request, authorization: str = Header(default
     }
     # logger.info(f"Returning response: {response_dict}")
     
-    # Если запрос с stream=True, возвращаем результат в формате streaming (пока просто возвращаем JSON)
+    # If the request specifies stream=True, return the result in streaming format (for now, just return JSON)
     if parsed_request.stream:
         return {"choices": [{"delta": {"content": response}}], "usage": response_dict["usage"]}
     return response_dict
