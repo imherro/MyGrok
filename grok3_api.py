@@ -1,4 +1,4 @@
-# grok_api.py
+# grok3_api.py
 import time
 import pyperclip
 import subprocess
