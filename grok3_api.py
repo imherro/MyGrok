@@ -1,4 +1,3 @@
-# grok3_api.py
 import time
 import pyperclip
 import subprocess
@@ -46,10 +45,11 @@ class XdotoolWrapper:
         return subprocess.check_output([XDOTOOL] + command).decode('utf-8').strip()
 
 class GrokAPI:
-    def __init__(self, url="https://grok.com", reuse_window=False):
+    def __init__(self, url="https://grok.com", reuse_window=False, anonymous_chat=False):
         os.makedirs(TEMPLATES_DIR, exist_ok=True)
         self.url = url
         self.reuse_window = reuse_window
+        self.anonymous_chat = anonymous_chat
         self.window_id = None
         self.templates = self._load_templates()
         self.template_cache = self._preload_templates()
@@ -96,7 +96,6 @@ class GrokAPI:
 
         for browser in ["google-chrome", "chromium", "firefox"]:
             try:
-                # Перенаправляем stdout и stderr в /dev/null
                 with open(os.devnull, 'w') as devnull:
                     subprocess.Popen([browser, "--new-window", self.url], stdout=devnull, stderr=devnull)
                 time.sleep(2)
@@ -126,7 +125,7 @@ class GrokAPI:
         screenshot = self._capture_screenshot()
         screenshot_rgb = cv2.cvtColor(screenshot, cv2.COLOR_BGR2RGB)
         template_rgb = self.template_cache.get(template_key)
-        if template_rgb is None:  # Explicit check for None instead of truthiness
+        if template_rgb is None:
             return None
         h, w = template_rgb.shape[:-1]
         result = cv2.matchTemplate(screenshot_rgb, template_rgb, cv2.TM_CCOEFF_NORMED)
@@ -173,6 +172,11 @@ class GrokAPI:
         time.sleep(0.3)
         XdotoolWrapper.run(['key', 'ctrl+a', 'Delete'])
 
+        # Открываем новый анонимный чат, если включён режим
+        if self.anonymous_chat:
+            XdotoolWrapper.run(['key', 'ctrl+shift+J'])
+            time.sleep(0.3)  # Ждём загрузки интерфейса
+
         original_clipboard = pyperclip.paste()
         if message:
             pyperclip.copy(message)
@@ -215,7 +219,8 @@ class GrokAPI:
         if not self.send_message(message, file_paths):
             return "Error: Failed to send message"
         response = self.get_response(timeout)
-        if close_after and not self.reuse_window and (wid := self._load_window_id()):
+        # Окно закрывается только если reuse_window=False и close_after=True
+        if not self.reuse_window and close_after and (wid := self._load_window_id()):
             XdotoolWrapper.run(['windowactivate', str(wid), 'key', 'ctrl+F4'])
             os.remove(WINDOW_ID_FILE) if os.path.exists(WINDOW_ID_FILE) else None
         return response
@@ -228,6 +233,7 @@ if __name__ == "__main__":
     import sys
     args = sys.argv[1:]
     reuse_window = any(x in args for x in ["--reuse-window", "-rw"])
+    anonymous_chat = any(x in args for x in ["--anonymous-chat", "-ac"])
     close_after = not any(x in args for x in ["--no-close", "-nc"])
 
     if not check_dependencies():
@@ -244,10 +250,10 @@ if __name__ == "__main__":
         elif not message:
             message = arg
 
-    api = GrokAPI(reuse_window=reuse_window)
+    api = GrokAPI(reuse_window=reuse_window, anonymous_chat=anonymous_chat)
     if message or file_paths:
         response = api.ask(message, file_paths, close_after=close_after)
         print(response)
     else:
         print("Usage: python grok_api.py [options] \"message\" [files...]")
-        print("Options: --reuse-window/-rw, --no-close/-nc")
+        print("Options: --reuse-window/-rw, --anonymous-chat/-ac, --no-close/-nc")
