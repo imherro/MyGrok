@@ -197,10 +197,18 @@ class GrokAPI:
         pyperclip.copy(original_clipboard)
         return False
 
+
+
     def get_response(self, timeout=60):
         """Retrieve the response from the UI."""
         start_time = time.time()
         original_clipboard = pyperclip.paste()
+        
+        # Убеждаемся, что окно активно
+        if self.window_id:
+            XdotoolWrapper.run(['windowactivate', str(self.window_id)])
+            time.sleep(0.1)  # Даем время на активацию окна
+        
         while time.time() - start_time < timeout:
             for key in ['copy_button', 'copy_button_alt']:
                 if key in self.templates and (pos := self._find_template(key, 0.7)):
@@ -209,8 +217,19 @@ class GrokAPI:
                     response = pyperclip.paste()
                     if response != original_clipboard and response.strip():
                         return response
+            
+            # Переключаем фокус на основное окно чата
+            time.sleep(1)  # Небольшая задержка после клика 
+            XdotoolWrapper.run(['click', '1'])  # Клик в текущей позиции курсора
+            time.sleep(0.1)  # Небольшая задержка после клика
+
+            XdotoolWrapper.run(['key', 'End'])  # Прокручиваем страницу
             time.sleep(1)
+        
         return "Error: Timeout waiting for response"
+    
+
+
 
     def ask(self, message="", file_paths=None, timeout=60, close_after=True):
         """Send a request and get a response."""
